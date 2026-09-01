@@ -205,7 +205,7 @@ def on_message(client, userdata, msg):
                 db.add(alert)
                 db.commit()
                 
-                # Alert the frontend
+                # Alert the frontend (always)
                 alert_data = {
                     "device_id": offline_dev,
                     "severity": "critical",
@@ -213,12 +213,6 @@ def on_message(client, userdata, msg):
                     "timestamp": payload["timestamp"]
                 }
                 asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
-                
-                # Discord Webhook Notification
-                try:
-                    trigger_external_alert(offline_dev, "critical", msg_text, loop=uvicorn_loop)
-                except:
-                    pass
 
             # EDGE AI PROXY RECOVERY: Fetch last known good data for the offline device
             last_telemetry = db.query(Telemetry).filter(Telemetry.device_id == offline_dev).order_by(Telemetry.timestamp.desc()).first()
