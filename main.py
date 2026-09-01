@@ -36,11 +36,12 @@ class ConnectionManager:
             self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
+        #print(f"Broadcasting to {len(self.active_connections)} connections")
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
-            except:
-                pass
+            except Exception as e:
+                print(f"Broadcast error: {e}")
 
 manager = ConnectionManager()
 uvicorn_loop = None
@@ -51,10 +52,12 @@ def on_connect(client, userdata, flags, rc):
     print("API connected to MQTT Broker")
     client.subscribe(f"{UNIQUE_ID}/devices/register")
     client.subscribe(f"{UNIQUE_ID}/telemetry/+")
+    client.subscribe(f"{UNIQUE_ID}/peer_alert/+")
 
 device_states = {} # Tracks global alert states
 
 def on_message(client, userdata, msg):
+    print(f"MQTT Recv: {msg.topic}")
     topic = msg.topic
     payload = json.loads(msg.payload.decode())
     db = SessionLocal()
