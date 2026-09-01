@@ -187,7 +187,6 @@ def on_message(client, userdata, msg):
                     pass
 
             # EDGE AI PROXY RECOVERY: Fetch last known good data for the offline device
-            from database import Telemetry
             import time
             last_telemetry = db.query(Telemetry).filter(Telemetry.device_id == offline_dev).order_by(Telemetry.timestamp.desc()).first()
             if last_telemetry:
