@@ -25,7 +25,7 @@ class Simulator:
         self.client = mqtt.Client()
         self.running = False
         self.disaster_mode = False
-        self.simulation_speed = 1.0
+        self.simulation_speed = 5.0
         self.anomaly_type = "none"
         
         # P2P Mesh Topology (Nearest Neighbors)
@@ -72,13 +72,15 @@ class Simulator:
                     # P2P Neighbor Watchdog Check
                     neighbor = self.mesh_topology.get(dev_id)
                     if neighbor and neighbor in offline_devices:
-                        alert_payload = {
-                            "reporter": dev_id,
-                            "offline_neighbor": neighbor,
-                            "timestamp": time.time(),
-                            "message": f"Peer Watchdog Timeout: {dev_id} lost contact with neighbor {neighbor}."
-                        }
-                        self.client.publish(f"{UNIQUE_ID}/peer_alert/{neighbor}", json.dumps(alert_payload))
+                        # Throttle peer alerts to avoid mosquitto IP ban
+                        if random.random() < 0.05:
+                            alert_payload = {
+                                "reporter": dev_id,
+                                "offline_neighbor": neighbor,
+                                "timestamp": time.time(),
+                                "message": f"Peer Watchdog Timeout: {dev_id} lost contact with neighbor {neighbor}."
+                            }
+                            self.client.publish(f"{UNIQUE_ID}/peer_alert/{neighbor}", json.dumps(alert_payload))
     
                     # Baseline Telemetry
                     latency = 12 + random.uniform(0, 8)
