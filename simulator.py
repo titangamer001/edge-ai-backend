@@ -4,7 +4,7 @@ import random
 import threading
 import paho.mqtt.client as mqtt
 
-MQTT_BROKER = "broker.emqx.io"
+MQTT_BROKER = "test.mosquitto.org"
 MQTT_PORT = 1883
 UNIQUE_ID = "edgeai_sim_102030"
 

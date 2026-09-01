@@ -8,14 +8,17 @@ import paho.mqtt.client as mqtt
 
 from database import SessionLocal, Device, Telemetry, Alert
 from ml_engine import ai_engine
-from simulator import simulator_engine, UNIQUE_ID, MQTT_BROKER, MQTT_PORT
+from simulator import simulator_engine, UNIQUE_ID
+MQTT_BROKER = "test.mosquitto.org"
+MQTT_PORT = 1883
+MQTT_TOPIC = "edge_ai/telemetry/+"
 
 app = FastAPI(title="Edge AI Network Management Platform API")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
