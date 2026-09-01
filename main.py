@@ -300,6 +300,8 @@ def resume_simulation():
     simulator_engine.paused = False
     return {"status": "Network simulation resumed."}
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import jwt
 import requests
 from urllib.parse import urlencode
