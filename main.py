@@ -49,6 +49,10 @@ uvicorn_loop = None
 mqtt_client = mqtt.Client()
 
 import time
+try:
+    from notifier import trigger_external_alert
+except ImportError:
+    def trigger_external_alert(*args, **kwargs): pass
 
 async def db_pruner():
     """Background task to delete telemetry data older than 2 hours to prevent database bloat."""
@@ -136,9 +140,11 @@ def on_message(client, userdata, msg):
             active_criticals = [dev for dev, state in device_states.items() if state == "critical"]
             
             if len(active_criticals) > 0 and not getattr(app, "network_in_disaster", False):
+                print(f"[*] STATE TRIGGER: network_in_disaster = True ({len(active_criticals)} criticals)")
                 app.network_in_disaster = True
                 msg = f"Network disruption detected! Vector: {device_id}."
                 
+                print("Adding alert to db")
                 alert = Alert(device_id="SYSTEM", alert_type="Network Anomaly", severity="critical", message=msg, current_value=lat, threshold=200.0)
                 db.add(alert)
                 
@@ -146,16 +152,19 @@ def on_message(client, userdata, msg):
                     "device_id": "SYSTEM",
                     "severity": "critical",
                     "message": msg,
-                    "timestamp": payload.get("timestamp", time.time())
+                    "timestamp": payload["timestamp"]
                 }
+                print("Broadcasting to UI")
                 asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
+                print("Broadcast queued")
                 
                 try:
-                    from notifier import trigger_external_alert
                     trigger_external_alert("MULTIPLE_NODES", "critical", msg)
-                except ImportError:
-                    pass
+                    print("Triggered external alert")
+                except Exception as e:
+                    print(f"Failed external alert: {e}")
             elif len(active_criticals) == 0 and getattr(app, "network_in_disaster", False):
+                print("[*] STATE TRIGGER: network_in_disaster = False (0 criticals, recovering)")
                 app.network_in_disaster = False
                 msg = "All network devices have returned to normal stable baselines."
                 
@@ -166,14 +175,13 @@ def on_message(client, userdata, msg):
                     "device_id": "SYSTEM",
                     "severity": "info",
                     "message": msg,
-                    "timestamp": payload.get("timestamp", time.time())
+                    "timestamp": payload["timestamp"]
                 }
                 asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
                 
                 try:
-                    from notifier import trigger_external_alert
                     trigger_external_alert("ALL_NODES", "stable", msg)
-                except ImportError:
+                except Exception:
                     pass
             
             db.commit()
@@ -213,7 +221,6 @@ def on_message(client, userdata, msg):
                 
                 # Discord Webhook Notification
                 try:
-                    from notifier import trigger_external_alert
                     trigger_external_alert(offline_dev, "critical", msg_text)
                 except:
                     pass

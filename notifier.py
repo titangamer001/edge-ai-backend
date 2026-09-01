@@ -45,9 +45,9 @@ def trigger_external_alert(device_id, severity, message):
     
     try:
         subprocess.run(["powershell", "-WindowStyle", "Hidden", "-Command", ps_script], 
-                       creationflags=subprocess.CREATE_NO_WINDOW)
-    except Exception:
-        pass
+                       creationflags=subprocess.CREATE_NO_WINDOW, timeout=2)
+    except Exception as e:
+        print(f"[NOTIFIER] Toast failed: {e}")
 
     # 2. Webhook Notification (Discord / Slack)
     import os
