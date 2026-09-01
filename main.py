@@ -125,12 +125,12 @@ def on_message(client, userdata, msg):
             db.add(record)
             
             # Handle Alerts internally (Edge-Triggered)
-            if is_anomaly or lat > 200 or loss > 15:
+            # Prioritize physical stability bounds over AI noise to ensure recovery triggers correctly
+            if lat < 50 and loss < 5:
+                device_states[device_id] = "stable"
+            elif is_anomaly or lat > 200 or loss > 15:
                 if device_states.get(device_id) != "critical":
                     device_states[device_id] = "critical"
-            else:
-                if lat < 50 and loss < 5:
-                    device_states[device_id] = "stable"
             
             # Aggregate State Machine (Only send 1 message for the whole network)
             active_criticals = [dev for dev, state in device_states.items() if state == "critical"]
