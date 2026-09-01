@@ -74,12 +74,6 @@ def trigger_external_alert(device_id, severity, message, loop=None):
             return
         _last_alert_time = now
     
-    # Render automatically sets RENDER=true in its environment. 
-    # We only fire webhooks/bots if we are on the cloud to prevent duplicate messages from localhost.
-    if os.environ.get("RENDER") != "true":
-        print(f"[NOTIFIER] Skipped Discord Bot alert (Localhost detected). Severity: {severity}")
-        return
-
     # Windows Native Toast removed - caused thread blocking issues
     # 2. Discord Bot Notification
     if loop:
