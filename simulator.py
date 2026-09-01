@@ -2,11 +2,12 @@ import time
 import json
 import random
 import threading
+import uuid
 import paho.mqtt.client as mqtt
 
 MQTT_BROKER = "test.mosquitto.org"
 MQTT_PORT = 1883
-UNIQUE_ID = "edgeai_sim_102030"
+UNIQUE_ID = f"edgeai_sim_{uuid.uuid4().hex[:8]}"
 
 DEVICES = [
     {"id": "EDGE-GW-001", "name": "Main Gateway NY", "location": "New York", "type": "Gateway"},
