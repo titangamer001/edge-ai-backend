@@ -3,10 +3,4 @@ uvicorn
 websockets
 sqlalchemy
 paho-mqtt
-torch
-scikit-learn
-pandas
-numpy
-joblib
-pyarrow
 psycopg2-binary

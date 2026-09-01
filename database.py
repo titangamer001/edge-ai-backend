@@ -38,8 +38,6 @@ class Telemetry(Base):
     latency = Column(Float)
     packet_loss = Column(Float)
     bandwidth = Column(Float)
-    anomaly_score = Column(Float)
-    is_anomaly = Column(Integer)
     
 class Alert(Base):
     __tablename__ = "alerts"

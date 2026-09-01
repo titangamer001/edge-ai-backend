@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 import paho.mqtt.client as mqtt
 
 from database import SessionLocal, Device, Telemetry, Alert
-from ml_engine import ai_engine
 from simulator import simulator_engine, UNIQUE_ID
 MQTT_BROKER = "test.mosquitto.org"
 MQTT_PORT = 1883
@@ -88,11 +87,11 @@ def on_message(client, userdata, msg):
     db = SessionLocal()
     try:
         if topic.endswith("/register"):
-            # Register device
-            device = db.query(Device).filter(Device.device_id == payload["id"]).first()
+            device_id = payload["id"]
+            device = db.query(Device).filter(Device.device_id == device_id).first()
             if not device:
                 device = Device(
-                    device_id=payload["id"],
+                    device_id=device_id,
                     name=payload["name"],
                     location=payload["location"],
                     device_type=payload["type"]
@@ -105,14 +104,11 @@ def on_message(client, userdata, msg):
             loss = payload["packet_loss"]
             bw = payload["bandwidth"]
             
-            # Predict
-            score, is_anomaly = ai_engine.predict(lat, loss, bw)
-            
-            # Update Device health and status
+            # Update Node Health Status without AI
             device = db.query(Device).filter(Device.device_id == device_id).first()
             if device:
-                # Basic health calculation based on anomaly score and loss
-                health = max(0, min(100, 100 - (score * 50) - (loss * 2)))
+                # Basic health calculation based on latency and loss directly
+                health = max(0, min(100, 100 - (lat / 5.0) - (loss * 2)))
                 device.health_score = health
                 device.status = "online"
                 db.commit()
@@ -122,9 +118,7 @@ def on_message(client, userdata, msg):
                 device_id=device_id,
                 latency=lat,
                 packet_loss=loss,
-                bandwidth=bw,
-                anomaly_score=score,
-                is_anomaly=int(is_anomaly)
+                bandwidth=bw
             )
             db.add(record)
             
@@ -132,7 +126,7 @@ def on_message(client, userdata, msg):
             # Prioritize physical stability bounds over AI noise to ensure recovery triggers correctly
             if lat < 50 and loss < 5:
                 device_states[device_id] = "stable"
-            elif is_anomaly or lat > 200 or loss > 15:
+            elif lat > 200 or loss > 15:
                 if device_states.get(device_id) != "critical":
                     device_states[device_id] = "critical"
             
@@ -187,8 +181,6 @@ def on_message(client, userdata, msg):
             db.commit()
             
             # Broadcast to UI
-            payload["anomaly_score"] = float(score)
-            payload["is_anomaly"] = bool(is_anomaly)
             payload["proxy_mode"] = False
             if device:
                 payload["health_score"] = device.health_score
@@ -233,8 +225,6 @@ def on_message(client, userdata, msg):
                     "latency": last_telemetry.latency,
                     "packet_loss": last_telemetry.packet_loss,
                     "bandwidth": last_telemetry.bandwidth,
-                    "anomaly_score": last_telemetry.anomaly_score,
-                    "is_anomaly": bool(last_telemetry.is_anomaly),
                     "timestamp": time.time(),
                     "proxy_mode": True,
                     "reporter": reporter,
