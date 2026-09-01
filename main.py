@@ -127,54 +127,52 @@ def on_message(client, userdata, msg):
             # Handle Alerts internally (Edge-Triggered)
             if is_anomaly or lat > 200 or loss > 15:
                 if device_states.get(device_id) != "critical":
-                    severity = "critical" if (lat > 250 or loss > 25) else "high"
-                    msg_text = f"Abnormal behavior detected on {device_id}. Latency: {lat:.1f}ms, Loss: {loss:.1f}%"
-                    alert = Alert(device_id=device_id, alert_type="Network Anomaly", severity=severity, message=msg_text, current_value=lat, threshold=200.0)
-                    db.add(alert)
-                    
                     device_states[device_id] = "critical"
-                    
-                    alert_data = {
-                        "device_id": device_id,
-                        "severity": severity,
-                        "message": msg_text,
-                        "timestamp": payload.get("timestamp", time.time())
-                    }
-                    asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
             else:
                 if lat < 50 and loss < 5:
-                    if device_states.get(device_id) == "critical":
-                        msg_text = f"Network stabilized on {device_id}."
-                        alert = Alert(device_id=device_id, alert_type="Recovery", severity="info", message=msg_text, current_value=lat, threshold=50.0)
-                        db.add(alert)
-                        
-                        device_states[device_id] = "stable"
-                        
-                        alert_data = {
-                            "device_id": device_id,
-                            "severity": "info",
-                            "message": msg_text,
-                            "timestamp": payload.get("timestamp", time.time())
-                        }
-                        asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
-                    else:
-                        device_states[device_id] = "stable"
+                    device_states[device_id] = "stable"
             
             # Aggregate State Machine (Only send 1 message for the whole network)
             active_criticals = [dev for dev, state in device_states.items() if state == "critical"]
             
             if len(active_criticals) > 0 and not getattr(app, "network_in_disaster", False):
                 app.network_in_disaster = True
+                msg = f"Network disruption detected! Vector: {device_id}."
+                
+                alert = Alert(device_id="SYSTEM", alert_type="Network Anomaly", severity="critical", message=msg, current_value=lat, threshold=200.0)
+                db.add(alert)
+                
+                alert_data = {
+                    "device_id": "SYSTEM",
+                    "severity": "critical",
+                    "message": msg,
+                    "timestamp": payload.get("timestamp", time.time())
+                }
+                asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
+                
                 try:
                     from notifier import trigger_external_alert
-                    trigger_external_alert("MULTIPLE_NODES", "critical", f"Network disruption detected. Initial vector: {device_id}. Latency: {lat:.1f}ms, Loss: {loss:.1f}%")
+                    trigger_external_alert("MULTIPLE_NODES", "critical", msg)
                 except ImportError:
                     pass
             elif len(active_criticals) == 0 and getattr(app, "network_in_disaster", False):
                 app.network_in_disaster = False
+                msg = "All network devices have returned to normal stable baselines."
+                
+                alert = Alert(device_id="SYSTEM", alert_type="Recovery", severity="info", message=msg, current_value=lat, threshold=50.0)
+                db.add(alert)
+                
+                alert_data = {
+                    "device_id": "SYSTEM",
+                    "severity": "info",
+                    "message": msg,
+                    "timestamp": payload.get("timestamp", time.time())
+                }
+                asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
+                
                 try:
                     from notifier import trigger_external_alert
-                    trigger_external_alert("ALL_NODES", "stable", f"All network devices have successfully returned to normal telemetry baselines.")
+                    trigger_external_alert("ALL_NODES", "stable", msg)
                 except ImportError:
                     pass
             
