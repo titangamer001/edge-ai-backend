@@ -26,6 +26,18 @@ class Simulator:
         self.disaster_mode = False
         self.simulation_speed = 1.0
         self.anomaly_type = "none"
+        
+        # P2P Mesh Topology (Nearest Neighbors)
+        self.mesh_topology = {
+            "EDGE-GW-001": "SENSOR-001",
+            "SENSOR-001": "EDGE-GW-001",
+            "EDGE-GW-002": "NODE-001",
+            "NODE-001": "EDGE-GW-002",
+            "SENSOR-002": "NODE-002",
+            "NODE-002": "SENSOR-002",
+            "NET-SENS-1": "IOT-CTRL-1",
+            "IOT-CTRL-1": "NET-SENS-1"
+        }
 
     def set_disaster_mode(self, active: bool, type: str = "none"):
         self.disaster_mode = active
@@ -42,13 +54,36 @@ class Simulator:
             
         print("Simulator started.")
         while self.running:
+            offline_devices = set()
+            
+            if self.disaster_mode and self.anomaly_type in ["ddos", "packet_drop"]:
+                # Simulate a catastrophic failure where specific nodes go completely offline
+                offline_devices = {"SENSOR-001", "NODE-002", "IOT-CTRL-1"}
+                
             for d in DEVICES:
-                # Baseline
+                dev_id = d["id"]
+                
+                # If device is dead, it cannot send telemetry
+                if dev_id in offline_devices:
+                    continue
+                    
+                # P2P Neighbor Watchdog Check
+                neighbor = self.mesh_topology.get(dev_id)
+                if neighbor and neighbor in offline_devices:
+                    alert_payload = {
+                        "reporter": dev_id,
+                        "offline_neighbor": neighbor,
+                        "timestamp": time.time(),
+                        "message": f"Peer Watchdog Timeout: {dev_id} lost contact with neighbor {neighbor}."
+                    }
+                    self.client.publish(f"{UNIQUE_ID}/peer_alert/{neighbor}", json.dumps(alert_payload))
+
+                # Baseline Telemetry
                 latency = 12 + random.uniform(0, 8)
                 packet_loss = random.uniform(0, 0.5)
                 bandwidth = 4.0 + random.uniform(0, 1.5)
                 
-                # Apply anomalies based on disaster state
+                # Apply anomalies based on disaster state (for surviving devices)
                 if self.disaster_mode:
                     if self.anomaly_type == "latency_spike":
                         latency += random.uniform(150, 400)
@@ -60,18 +95,17 @@ class Simulator:
                         latency += random.uniform(100, 300)
                         packet_loss += random.uniform(10, 20)
                     elif self.anomaly_type == "degradation":
-                        # Gradual failure
                         latency += random.uniform(50, 120)
                         packet_loss += random.uniform(5, 15)
                 
                 payload = {
-                    "device_id": d["id"],
+                    "device_id": dev_id,
                     "latency": latency,
                     "packet_loss": packet_loss,
                     "bandwidth": bandwidth,
                     "timestamp": time.time()
                 }
-                self.client.publish(f"{UNIQUE_ID}/telemetry/{d['id']}", json.dumps(payload))
+                self.client.publish(f"{UNIQUE_ID}/telemetry/{dev_id}", json.dumps(payload))
                 
             time.sleep(1.0 / self.simulation_speed)
 
