@@ -299,3 +299,60 @@ def pause_simulation():
 def resume_simulation():
     simulator_engine.paused = False
     return {"status": "Network simulation resumed."}
+import os
+import jwt
+import requests
+from urllib.parse import urlencode
+from fastapi import Body, HTTPException
+
+JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-edge-ai-key")
+DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "")
+DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+REDIRECT_URI = f"{FRONTEND_URL}/auth/callback"
+
+@app.get("/api/auth/discord/url")
+def get_discord_auth_url():
+    params = {
+        "client_id": DISCORD_CLIENT_ID,
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "scope": "identify guilds.join",
+    }
+    url = f"https://discord.com/api/oauth2/authorize?{urlencode(params)}"
+    return {"url": url}
+
+@app.post("/api/auth/discord/callback")
+def discord_callback(payload: dict = Body(...)):
+    code = payload.get("code")
+    data = {
+        "client_id": DISCORD_CLIENT_ID,
+        "client_secret": DISCORD_CLIENT_SECRET,
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": REDIRECT_URI
+    }
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    r = requests.post("https://discord.com/api/oauth2/token", data=data, headers=headers)
+    if r.status_code != 200:
+        raise HTTPException(status_code=400, detail="Invalid code")
+    
+    tokens = r.json()
+    access_token = tokens["access_token"]
+    
+    user_r = requests.get("https://discord.com/api/users/@me", headers={"Authorization": f"Bearer {access_token}"})
+    if user_r.status_code != 200:
+        raise HTTPException(status_code=400, detail="Failed to fetch user")
+        
+    user_data = user_r.json()
+    discord_id = user_data["id"]
+    
+    # Trigger auto-role assignment
+    from notifier import trigger_auto_role
+    try:
+        trigger_auto_role(discord_id, loop=uvicorn_loop)
+    except Exception as e:
+        print(f"Auto-role trigger failed: {e}")
+    
+    token = jwt.encode({"sub": discord_id, "name": user_data.get("username")}, JWT_SECRET, algorithm="HS256")
+    return {"token": token, "user": user_data}

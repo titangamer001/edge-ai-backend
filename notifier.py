@@ -90,3 +90,40 @@ def trigger_external_alert(device_id, severity, message, loop=None):
     # 2. Discord Bot Notification
     if loop:
         asyncio.run_coroutine_threadsafe(send_discord_alert(device_id, severity, message), loop)
+async def assign_auto_role_task(discord_user_id: int):
+    await bot.wait_until_ready()
+    guild_id = int(os.environ.get("DISCORD_GUILD_ID", 0))
+    role_id = int(os.environ.get("DISCORD_AUTO_ROLE_ID", 0))
+    
+    if not guild_id or not role_id:
+        print("[DISCORD] Missing GUILD_ID or ROLE_ID for auto-role.")
+        return
+        
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        print(f"[DISCORD] Could not find guild with ID {guild_id}")
+        return
+        
+    member = guild.get_member(discord_user_id)
+    if not member:
+        try:
+            member = await guild.fetch_member(discord_user_id)
+        except Exception as e:
+            print(f"[DISCORD] Could not fetch member {discord_user_id}: {e}")
+            return
+            
+    role = guild.get_role(role_id)
+    if not role:
+        print(f"[DISCORD] Could not find role with ID {role_id}")
+        return
+        
+    try:
+        await member.add_roles(role)
+        print(f"[DISCORD] Assigned auto-role to {member.name}")
+    except Exception as e:
+        print(f"[DISCORD] Failed to assign role: {e}")
+
+def trigger_auto_role(discord_user_id, loop=None):
+    if loop:
+        import asyncio
+        asyncio.run_coroutine_threadsafe(assign_auto_role_task(int(discord_user_id)), loop)
