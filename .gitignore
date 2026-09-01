@@ -1,0 +1,13 @@
+# Ignore massive Kaggle datasets and model weights
+*.csv
+*.parquet
+*.zip
+*.pth
+*.pkl
+
+# Ignore SQLite DB
+*.db
+
+# Ignore Virtual Environment
+venv/
+__pycache__/
