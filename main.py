@@ -310,7 +310,7 @@ from fastapi import Body, HTTPException
 JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-edge-ai-key")
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://edge-ai-frontend-xi.vercel.app")
 REDIRECT_URI = f"{FRONTEND_URL}/auth/callback"
 
 @app.get("/api/auth/discord/url")
