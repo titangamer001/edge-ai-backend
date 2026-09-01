@@ -73,7 +73,7 @@ async def send_discord_alert(device_id, severity, message):
 
 
 # Cooldown logic
-ALERT_COOLDOWN = 15
+ALERT_COOLDOWN = 2
 _last_alert_time = 0
 
 def trigger_external_alert(device_id, severity, message, loop=None):
