@@ -17,6 +17,7 @@ if DATABASE_URL.startswith("postgres://"):
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
+    print(f"DEBUG URL: {DATABASE_URL}")
     engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -25,11 +26,11 @@ Base = declarative_base()
 class Device(Base):
     __tablename__ = "devices"
     id = Column(Integer, primary_key=True, index=True)
-    device_id = Column(String, unique=True, index=True)
-    name = Column(String)
-    location = Column(String)
-    device_type = Column(String)
-    status = Column(String, default="online")
+    device_id = Column(String(255), unique=True, index=True)
+    name = Column(String(255))
+    location = Column(String(255))
+    device_type = Column(String(255))
+    status = Column(String(255), default="online")
     last_seen = Column(DateTime, default=datetime.datetime.utcnow)
     health_score = Column(Float, default=100.0)
 
@@ -37,7 +38,7 @@ class Telemetry(Base):
     __tablename__ = "telemetry"
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
-    device_id = Column(String, index=True)
+    device_id = Column(String(255), index=True)
     latency = Column(Float)
     packet_loss = Column(Float)
     bandwidth = Column(Float)
@@ -46,13 +47,13 @@ class Alert(Base):
     __tablename__ = "alerts"
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
-    device_id = Column(String, index=True)
-    alert_type = Column(String)
-    severity = Column(String) # critical, high, medium, low
-    message = Column(String)
+    device_id = Column(String(255), index=True)
+    alert_type = Column(String(255))
+    severity = Column(String(255)) # critical, high, medium, low
+    message = Column(String(1024))
     current_value = Column(Float)
     threshold = Column(Float)
-    status = Column(String, default="active") # active, resolved, acknowledged
+    status = Column(String(255), default="active") # active, resolved, acknowledged
 
 Base.metadata.create_all(bind=engine)
 
