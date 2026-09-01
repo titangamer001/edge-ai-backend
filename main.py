@@ -124,17 +124,41 @@ def on_message(client, userdata, msg):
             )
             db.add(record)
             
-            # Handle Alerts internally
+            # Handle Alerts internally (Edge-Triggered)
             if is_anomaly or lat > 200 or loss > 15:
-                severity = "critical" if (lat > 250 or loss > 25) else "high"
-                msg_text = f"Abnormal behavior detected on {device_id}. Latency: {lat:.1f}ms, Loss: {loss:.1f}%"
-                alert = Alert(device_id=device_id, alert_type="Network Anomaly", severity=severity, message=msg_text, current_value=lat, threshold=200.0)
-                db.add(alert)
-                
-                device_states[device_id] = "critical"
+                if device_states.get(device_id) != "critical":
+                    severity = "critical" if (lat > 250 or loss > 25) else "high"
+                    msg_text = f"Abnormal behavior detected on {device_id}. Latency: {lat:.1f}ms, Loss: {loss:.1f}%"
+                    alert = Alert(device_id=device_id, alert_type="Network Anomaly", severity=severity, message=msg_text, current_value=lat, threshold=200.0)
+                    db.add(alert)
+                    
+                    device_states[device_id] = "critical"
+                    
+                    alert_data = {
+                        "device_id": device_id,
+                        "severity": severity,
+                        "message": msg_text,
+                        "timestamp": payload.get("timestamp", time.time())
+                    }
+                    asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
             else:
                 if lat < 50 and loss < 5:
-                    device_states[device_id] = "stable"
+                    if device_states.get(device_id) == "critical":
+                        msg_text = f"Network stabilized on {device_id}."
+                        alert = Alert(device_id=device_id, alert_type="Recovery", severity="info", message=msg_text, current_value=lat, threshold=50.0)
+                        db.add(alert)
+                        
+                        device_states[device_id] = "stable"
+                        
+                        alert_data = {
+                            "device_id": device_id,
+                            "severity": "info",
+                            "message": msg_text,
+                            "timestamp": payload.get("timestamp", time.time())
+                        }
+                        asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
+                    else:
+                        device_states[device_id] = "stable"
             
             # Aggregate State Machine (Only send 1 message for the whole network)
             active_criticals = [dev for dev, state in device_states.items() if state == "critical"]
@@ -164,16 +188,6 @@ def on_message(client, userdata, msg):
                 payload["health_score"] = device.health_score
                 
             asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "telemetry", "data": payload}), uvicorn_loop)
-            
-            # Broadcast alerts if any
-            if is_anomaly:
-                alert_data = {
-                    "device_id": device_id,
-                    "severity": severity,
-                    "message": msg_text,
-                    "timestamp": payload["timestamp"]
-                }
-                asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
 
         elif "/peer_alert/" in topic:
             offline_dev = payload["offline_neighbor"]
