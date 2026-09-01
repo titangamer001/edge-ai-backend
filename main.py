@@ -289,3 +289,13 @@ def trigger_disaster(action: str):
     
     simulator_engine.set_disaster_mode(True, action)
     return {"status": f"Disaster mode activated: {action}"}
+
+@app.post("/api/simulation/pause")
+def pause_simulation():
+    simulator_engine.paused = True
+    return {"status": "Network simulation stopped."}
+
+@app.post("/api/simulation/resume")
+def resume_simulation():
+    simulator_engine.paused = False
+    return {"status": "Network simulation resumed."}

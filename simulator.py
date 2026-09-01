@@ -49,6 +49,7 @@ class Simulator:
         self.client.connect(MQTT_BROKER, MQTT_PORT, 60)
         self.client.loop_start() # Process network traffic so publish doesn't block
         self.running = True
+        self.paused = getattr(self, 'paused', False)
         
         # Register devices
         for d in DEVICES:
@@ -57,6 +58,10 @@ class Simulator:
         print("Simulator started.")
         while self.running:
             try:
+                if getattr(self, 'paused', False):
+                    time.sleep(1.0)
+                    continue
+
                 offline_devices = set()
                 
                 if self.disaster_mode and self.anomaly_type in ["ddos", "packet_drop"]:
