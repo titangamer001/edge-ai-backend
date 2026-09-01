@@ -43,11 +43,7 @@ class ConnectionManager:
                 pass
 
 manager = ConnectionManager()
-try:
-    loop = asyncio.get_running_loop()
-except RuntimeError:
-    loop = asyncio.new_event_loop()
-    threading.Thread(target=loop.run_forever, daemon=True).start()
+uvicorn_loop = None
 
 mqtt_client = mqtt.Client()
 
@@ -143,7 +139,7 @@ def on_message(client, userdata, msg):
             if device:
                 payload["health_score"] = device.health_score
                 
-            asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "telemetry", "data": payload}), loop)
+            asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "telemetry", "data": payload}), uvicorn_loop)
             
             # Broadcast alerts if any
             if is_anomaly:
@@ -153,7 +149,7 @@ def on_message(client, userdata, msg):
                     "message": msg_text,
                     "timestamp": payload["timestamp"]
                 }
-                asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), loop)
+                asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
 
         elif "/peer_alert/" in topic:
             offline_dev = payload["offline_neighbor"]
@@ -177,7 +173,7 @@ def on_message(client, userdata, msg):
                     "message": msg_text,
                     "timestamp": payload["timestamp"]
                 }
-                asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), loop)
+                asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
                 
                 # Discord Webhook Notification
                 try:
@@ -202,7 +198,7 @@ def on_message(client, userdata, msg):
                     "reporter": reporter,
                     "health_score": device.health_score if device else 0
                 }
-                asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "telemetry", "data": proxy_payload}), loop)
+                asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "telemetry", "data": proxy_payload}), uvicorn_loop)
 
                 
     except Exception as e:
@@ -215,6 +211,8 @@ mqtt_client.on_message = on_message
 
 @app.on_event("startup")
 def startup():
+    global uvicorn_loop
+    uvicorn_loop = asyncio.get_running_loop()
     # Start MQTT Client
     mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
     threading.Thread(target=mqtt_client.loop_forever, daemon=True).start()
