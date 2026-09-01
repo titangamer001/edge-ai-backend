@@ -55,6 +55,15 @@ class Alert(Base):
     threshold = Column(Float)
     status = Column(String(255), default="active") # active, resolved, acknowledged
 
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    discord_id = Column(String(255), unique=True, index=True)
+    username = Column(String(255))
+    avatar_url = Column(String(255))
+    last_login = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
 Base.metadata.create_all(bind=engine)
 
 def get_db():

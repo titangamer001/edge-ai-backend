@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import paho.mqtt.client as mqtt
 
-from database import SessionLocal, Device, Telemetry, Alert
+from database import SessionLocal, Device, Telemetry, Alert, User
 from simulator import simulator_engine, UNIQUE_ID
 MQTT_BROKER = "test.mosquitto.org"
 MQTT_PORT = 1883
@@ -344,8 +344,33 @@ def discord_callback(payload: dict = Body(...)):
     if user_r.status_code != 200:
         raise HTTPException(status_code=400, detail="Failed to fetch user")
         
+
     user_data = user_r.json()
-    discord_id = user_data["id"]
+    discord_id = str(user_data["id"])
+    username = user_data.get("username")
+    avatar_hash = user_data.get("avatar")
+    avatar_url = f"https://cdn.discordapp.com/avatars/{discord_id}/{avatar_hash}.png" if avatar_hash else None
+    
+    db = SessionLocal()
+    import datetime
+    try:
+        db_user = db.query(User).filter(User.discord_id == discord_id).first()
+        if not db_user:
+            db_user = User(
+                discord_id=discord_id,
+                username=username,
+                avatar_url=avatar_url,
+                last_login=datetime.datetime.utcnow()
+            )
+            db.add(db_user)
+        else:
+            db_user.username = username
+            db_user.avatar_url = avatar_url
+            db_user.last_login = datetime.datetime.utcnow()
+        db.commit()
+    finally:
+        db.close()
+
     
     # Trigger auto-role assignment
     from notifier import trigger_auto_role
