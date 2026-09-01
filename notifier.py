@@ -50,7 +50,10 @@ def trigger_external_alert(device_id, severity, message):
         pass
 
     # 2. Webhook Notification (Discord / Slack)
-    if WEBHOOK_URL:
+    import os
+    # Render automatically sets RENDER=true in its environment. 
+    # We only fire webhooks if we are on the cloud to prevent duplicate messages from localhost.
+    if WEBHOOK_URL and os.environ.get("RENDER") == "true":
         try:
             if severity == "stable":
                 embed_color = 65280 # Green
