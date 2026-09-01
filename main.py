@@ -48,6 +48,27 @@ uvicorn_loop = None
 
 mqtt_client = mqtt.Client()
 
+import time
+
+async def db_pruner():
+    """Background task to delete telemetry data older than 2 hours to prevent database bloat."""
+    while True:
+        try:
+            await asyncio.sleep(300) # Run every 5 minutes
+            db = SessionLocal()
+            try:
+                cutoff = time.time() - (2 * 3600) # 2 hours ago
+                deleted = db.query(Telemetry).filter(Telemetry.timestamp < cutoff).delete()
+                db.commit()
+                if deleted > 0:
+                    print(f"[*] DB Pruner: Cleaned up {deleted} old telemetry records.")
+            except Exception as e:
+                print(f"[*] DB Pruner Error: {e}")
+            finally:
+                db.close()
+        except asyncio.CancelledError:
+            break
+
 def on_connect(client, userdata, flags, rc):
     print("API connected to MQTT Broker")
     client.subscribe(f"{UNIQUE_ID}/devices/register")
@@ -216,6 +237,7 @@ mqtt_client.on_message = on_message
 def startup():
     global uvicorn_loop
     uvicorn_loop = asyncio.get_running_loop()
+    uvicorn_loop.create_task(db_pruner())
     # Start MQTT Client
     mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
     threading.Thread(target=mqtt_client.loop_forever, daemon=True).start()
