@@ -47,6 +47,7 @@ class Simulator:
 
     def run(self):
         self.client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        self.client.loop_start() # Process network traffic so publish doesn't block
         self.running = True
         
         # Register devices
@@ -109,9 +110,12 @@ class Simulator:
                         "bandwidth": bandwidth,
                         "timestamp": time.time()
                     }
+                    print(f"About to publish {dev_id}")
                     self.client.publish(f"{UNIQUE_ID}/telemetry/{dev_id}", json.dumps(payload))
-                    
+                    print(f"Published {dev_id}")
+                print("Sim tick - about to sleep")
                 time.sleep(1.0 / self.simulation_speed)
+                print("Sim tick - woke up")
             except Exception as e:
                 print(f"[SIMULATOR CRASH] {e}")
 

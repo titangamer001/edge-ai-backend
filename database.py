@@ -2,6 +2,9 @@ import os
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
 import datetime
+from dotenv import load_dotenv
+
+load_dotenv() # Load variables from .env file if it exists
 
 # Default to SQLite locally, but use PostgreSQL if provided in cloud
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./edge_data.db")

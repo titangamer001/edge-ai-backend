@@ -1,8 +1,11 @@
 import os
 import subprocess
-import asyncio
 import time
+import asyncio
 import discord
+from dotenv import load_dotenv
+
+load_dotenv() # Load variables from .env file if it exists
 
 import base64
 
