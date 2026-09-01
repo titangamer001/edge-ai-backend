@@ -153,7 +153,7 @@ def on_message(client, userdata, msg):
                 print("Broadcast queued")
                 
                 try:
-                    trigger_external_alert("MULTIPLE_NODES", "critical", msg)
+                    trigger_external_alert("MULTIPLE_NODES", "critical", msg, loop=uvicorn_loop)
                     print("Triggered external alert")
                 except Exception as e:
                     print(f"Failed external alert: {e}")
@@ -162,6 +162,7 @@ def on_message(client, userdata, msg):
                 app.network_in_disaster = False
                 msg = "All network devices have returned to normal stable baselines."
                 
+                print("Adding alert to db")
                 alert = Alert(device_id="SYSTEM", alert_type="Recovery", severity="info", message=msg, current_value=lat, threshold=50.0)
                 db.add(alert)
                 
@@ -174,11 +175,13 @@ def on_message(client, userdata, msg):
                 asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "alert", "data": alert_data}), uvicorn_loop)
                 
                 try:
-                    trigger_external_alert("ALL_NODES", "stable", msg)
+                    trigger_external_alert("ALL_NODES", "stable", msg, loop=uvicorn_loop)
                 except Exception:
                     pass
             
+            print("Committing DB")
             db.commit()
+            print("DB Committed")
             
             # Broadcast to UI
             payload["proxy_mode"] = False
@@ -213,7 +216,7 @@ def on_message(client, userdata, msg):
                 
                 # Discord Webhook Notification
                 try:
-                    trigger_external_alert(offline_dev, "critical", msg_text)
+                    trigger_external_alert(offline_dev, "critical", msg_text, loop=uvicorn_loop)
                 except:
                     pass
 
@@ -246,6 +249,14 @@ def startup():
     global uvicorn_loop
     uvicorn_loop = asyncio.get_running_loop()
     uvicorn_loop.create_task(db_pruner())
+    
+    # Start Discord Bot
+    try:
+        from notifier import start_discord_bot
+        uvicorn_loop.create_task(start_discord_bot())
+    except Exception as e:
+        print(f"[MAIN] Failed to initialize Discord Bot: {e}")
+        
     # Start MQTT Client
     mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
     threading.Thread(target=mqtt_client.loop_forever, daemon=True).start()
