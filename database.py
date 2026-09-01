@@ -3,9 +3,19 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
 import datetime
 
-# SQLite for local deployment
-DATABASE_URL = "sqlite:///./edge_data.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Default to SQLite locally, but use PostgreSQL if provided in cloud
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./edge_data.db")
+
+# SQLAlchemy 1.4+ requires "postgresql://" instead of "postgres://"
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Only SQLite needs check_same_thread
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DATABASE_URL)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
